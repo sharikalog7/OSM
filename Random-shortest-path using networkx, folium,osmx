@@ -1,0 +1,54 @@
+import osmnx as ox
+import folium
+import networkx as nx
+import random
+from folium import Icon
+
+# Define the place and obtain the network graph
+place = "Pittsburgh, United States"
+G = ox.graph_from_place(place, custom_filter='["highway"~"footway"]')
+
+# Create a folium map
+map_center = (G.nodes[list(G.nodes())[0]]['y'], G.nodes[list(G.nodes())[0]]['x'])
+m = folium.Map(location=map_center, zoom_start=15)
+
+# Add network graph edges to the map as polylines
+for u, v, data in G.edges(keys=False, data=True):
+    if 'geometry' in data:
+        coords = list(data['geometry'].coords)
+        folium.PolyLine(locations=coords).add_to(m)
+
+# Function to find a random point in the network
+def random_point_in_network():
+    node = random.choice(list(G.nodes()))
+    return G.nodes[node]['y'], G.nodes[node]['x']
+
+# Function to find the nearest node in the network to the provided coordinates
+def nearest_node_to_coords(coords):
+    return ox.distance.nearest_nodes(G, coords[1], coords[0])
+
+# Find and highlight random shortest paths
+num_paths = 5  # Number of random shortest paths to find
+for i in range(num_paths):
+    source_coords = random_point_in_network()
+    target_coords = random_point_in_network()
+    
+    source_node = nearest_node_to_coords(source_coords)
+    target_node = nearest_node_to_coords(target_coords)
+
+    shortest_path = nx.shortest_path(G, source=source_node, target=target_node, weight='length')
+    shortest_path_coords = [(G.nodes[node]['y'], G.nodes[node]['x']) for node in shortest_path]
+
+    # Generate a random color for the path
+    random_color = "#{:02x}{:02x}{:02x}".format(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    
+    # Add the path to the map as a polyline with a custom color
+    folium.PolyLine(locations=shortest_path_coords, color=random_color, weight=5).add_to(m)
+
+    # Add an icon at the source and target nodes
+    icon_color = 'white' if random_color != '#ffffff' else 'black'
+    folium.Marker(location=source_coords, icon=Icon(color=random_color, icon_color=icon_color, icon='cloud')).add_to(m)
+    folium.Marker(location=target_coords, icon=Icon(color=random_color, icon_color=icon_color, icon='cloud')).add_to(m)
+
+# Display the map
+m
